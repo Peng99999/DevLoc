@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Open Source Developer 3D Earth Distribution Model</title>
+<style>
+html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#000; font-family:Arial,sans-serif; }
+#container { position:absolute; inset:0; }
+.panel { position:absolute; z-index:10; color:#fff; background:rgba(0,0,0,.72); border:1px solid #444; border-radius:10px; padding:14px; }
+#leftPanel { top:20px; left:20px; width:260px; }
+#legend { top:20px; right:20px; width:180px; }
+#topCountries { right:20px; bottom:20px; min-width:250px; }
+#instructions { position:absolute; top:20px; left:310px; right:230px; z-index:10; text-align:center; color:#fff; pointer-events:none; }
+#tooltip { position:absolute; z-index:30; display:none; color:#fff; background:rgba(0,0,0,.86); border:1px solid #fff; border-radius:5px; padding:9px; pointer-events:none; }
+input,button { box-sizing:border-box; width:100%; padding:9px; border-radius:5px; }
+input { color:#fff; background:#222; border:1px solid #555; margin-bottom:8px; }
+button { color:#fff; background:#6387ff; border:0; cursor:pointer; }
+.stat,.rank { display:flex; justify-content:space-between; gap:16px; margin:6px 0; }
+.value,.rank-number { color:#63d8b1; font-weight:bold; }
+.legend-item { display:flex; align-items:center; margin:7px 0; }
+.swatch { width:18px; height:18px; border-radius:3px; margin-right:9px; }
+#details { display:none; margin-top:14px; border-top:1px solid #444; padding-top:10px; line-height:1.7; }
+.small { color:#aaa; font-size:12px; margin:4px 0 10px; }
+h3 { margin:0 0 10px; }
+</style>
+</head>
+<body>
+<div id="container"></div>
+<div id="instructions">Drag to rotate Earth | Scroll to zoom | Search to focus</div>
+<div id="tooltip"></div>
+
+<div id="leftPanel" class="panel">
+  <input id="search" placeholder="Search country or region...">
+  <div class="small">Enter a country or region name in English</div>
+  <button id="findButton">Find Country/Region</button>
+  <h3 style="margin-top:16px">Global Statistics</h3>
+  <div class="stat"><span>Total Developers:</span><span class="value">23.9561M</span></div>
+  <div class="stat"><span>Countries/Regions:</span><span class="value">242</span></div>
+  <div id="details">
+    <div><span>Country/Region: </span><span id="detailName" class="value"></span></div>
+    <div><span>Continent: </span><span id="detailContinent" class="value"></span></div>
+    <div><span>Developer Count: </span><span id="detailCount" class="value"></span></div>
+    <div><span>Global Rank: </span><span id="detailRank" class="value"></span></div>
+  </div>
+</div>
+
+<div id="legend" class="panel">
+  <h3>Distribution Legend</h3>
+  <div class="legend-item"><span class="swatch" style="background:#ff6f7f"></span>Asia</div>
+  <div class="legend-item"><span class="swatch" style="background:#6387ff"></span>North America</div>
+  <div class="legend-item"><span class="swatch" style="background:#45c99a"></span>Europe</div>
+  <div class="legend-item"><span class="swatch" style="background:#f0c75e"></span>South America</div>
+  <div class="legend-item"><span class="swatch" style="background:#b47cff"></span>Africa</div>
+  <div class="legend-item"><span class="swatch" style="background:#43c4d8"></span>Oceania</div>
+  <div class="legend-item"><span class="swatch" style="background:#cbd7e8"></span>Arctic/Antarctic</div>
+</div>
+
+<div id="topCountries" class="panel">
+  <h3>Top 10 Developer Counts</h3>
+  <div id="topList"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const developerCountsCsv = "Country/Region,Developer Count\nUnited States,4331264\nBrazil,2593480\nIndia,2319526\nChina,1782055\nGermany,814888\nUnited Kingdom,737391\nFrance,678332\nCanada,549545\nIndonesia,517629\nSpain,465403\nRussia,446356\nSouth Korea,402647\nItaly,390105\nMexico,382243\nJapan,358985\nArgentina,322061\nBangladesh,298616\nNetherlands,297446\nVietnam,268619\nPoland,258931\nAustralia,245126\nTürkiye,218966\nColombia,215784\nPakistan,211619\nNigeria,210589\nPhilippines,202868\nUkraine,190186\nSwitzerland,167816\nEgypt,154713\nIran,152794\nSouth Africa,138287\nSri Lanka,136275\nSweden,130940\nBelgium,126915\nNepal,114186\nPortugal,104078\nThailand,97292\nCzechia,91349\nAustria,86950\nMalaysia,82551\nMorocco,80539\nRomania,78058\nDenmark,77825\nIsrael,74970\nChile,74923\nNorway,73285\nKenya,71928\nUzbekistan,71694\nPeru,69729\nGreece,64908\nSaudi Arabia,61586\nIreland,60463\nNew Zealand,59667\nFinland,59527\nVenezuela,51899\nTunisia,50354\nAlgeria,50307\nHungary,47593\nUnited Arab Emirates,46798\nBelarus,45394\nBulgaria,44130\nGhana,43522\nSerbia,42165\nHong Kong,40433\nEcuador,37298\nKazakhstan,36409\nEthiopia,34349\nIraq,33835\nSingapore,33226\nSlovakia,32337\nUganda,30512\nCroatia,30184\nCameroon,29997\nBosnia and Herzegovina,29904\nCosta Rica,28032\nDominican Republic,26207\nMyanmar,24616\nDemocratic Republic of the Congo,21387\nTanzania,21340\nSlovenia,20638\nRwanda,20263\nUruguay,19795\nLithuania,18813\nEstonia,18485\nGeorgia,17970\nJordan,17970\nBolivia,17924\nAngola,15911\nParaguay,15864\nLebanon,15256\nAzerbaijan,15022\nGuatemala,14788\nCambodia,14554\nKyrgyzstan,14414\nLatvia,14273\nSenegal,13899\nMoldova,13852\nArmenia,13571\nMadagascar,12869\nSyria,12869\nNorth Macedonia,12823\nYemen,12355\nCôte d'Ivoire,12261\nAfghanistan,12121\nMozambique,11887\nEl Salvador,11699\nSomalia,11465\nCyprus,11372\nHonduras,11185\nPuerto Rico,10951\nCuba,10295\nBenin,10249\nNicaragua,9921\nIceland,9781\nPanama,9687\nZimbabwe,9313\nLuxembourg,8564\nZambia,8143\nLibya,7020\nSudan,6645\nLaos,6364\nOman,6318\nMalta,6177\nAlbania,6130\nAntarctica,6037\nTogo,6037\nMontenegro,5990\nMongolia,5897\nMalawi,5663\nHaiti,5195\nRéunion,5101\nTajikistan,5101\nJamaica,4914\nMauritius,4914\nFiji,4305\nNorth Korea,4305\nMacao,3931\nQatar,3931\nBurkina Faso,3744\nCabo Verde,3603\nNamibia,3603\nSierra Leone,3416\nKuwait,3276\nGuinea,3229\nTrinidad and Tobago,3089\nBotswana,3042\nTurkmenistan,2995\nBahrain,2948\nBhutan,2948\nThe Gambia,2855\nMali,2808\nRepublic of the Congo,2808\nFrench Polynesia,2761\nLiberia,2667\nBahamas,2621\nPapua New Guinea,2574\nMauritania,2387\nNew Caledonia,2387\nBurundi,2340\nNiger,2246\nChad,2153\nAndorra,2059\nU.S. Virgin Islands,2012\nEswatini,1872\nMaldives,1825\nGabon,1778\nCayman Islands,1685\nLesotho,1591\nSouth Sudan,1416\nGuyana,1408\nGreenland,1400\nCocos (Keeling) Islands,1392\nJersey,1365\nGuadeloupe,1357\nBelize,1349\nLiechtenstein,1310\nMonaco,1264\nSeychelles,1217\nTimor-Leste,1123\nBrunei,1076\nMartinique,1030\nBritish Virgin Islands,983\nTonga,944\nFrench Guiana,936\nBarbados,928\nÅland Islands,909\nSuriname,901\nSaint Kitts and Nevis,893\nNorthern Mariana Islands,885\nGuam,877\nFaroe Islands,869\nIsle of Man,846\nCuraçao,838\nSvalbard and Jan Mayen,800\nSaint Vincent and the Grenadines,792\nVatican City,757\nVanuatu,749\nSan Marino,741\nSaint Lucia,671\nGuernsey,663\nEquatorial Guinea,655\nDominica,647\nBermuda,639\nSão Tomé and Príncipe,612\nAntigua and Barbuda,604\nTurks and Caicos Islands,574\nGibraltar,566\nEritrea,558\nComoros,550\nSolomon Islands,527\nGuinea-Bissau,519\nGrenada,511\nDjibouti,503\nSamoa,433\nCook Islands,425\nCentral African Republic,417\nAruba,409\nSaint Pierre and Miquelon,390\nMicronesia,382\nMayotte,374\nMarshall Islands,366\nCaribbean Netherlands,358\n\"Saint Helena, Ascension and Tristan da Cunha\",336\nPalau,328\nFrench Southern and Antarctic Lands,320\nAmerican Samoa,281\nWallis and Futuna,250\nUnited States Minor Outlying Islands,242\nTuvalu,234\nSint Maarten,226\nChristmas Island,218\nSaint Barthélemy,191\nKiribati,183\nTokelau,160\nPitcairn Islands,152\nNiue,144\nMontserrat,136\nBouvet Island,128\nAnguilla,120\nNorfolk Island,98\nNauru,90\nHeard Island and McDonald Islands,47";
+
+const continentColors = {
+  Asia:0xff6f7f,
+  "North America":0x6387ff,
+  Europe:0x45c99a,
+  "South America":0xf0c75e,
+  Africa:0xb47cff,
+  Oceania:0x43c4d8,
+  Arctic:0xcbd7e8
+};
+
+const aliases = {
+  "Türkiye":"Turkey","Macao":"Macau","U.S. Virgin Islands":"United States Virgin Islands",
+  "The Gambia":"Gambia","Micronesia":"Federated States of Micronesia",
+  "Côte d'Ivoire":"Ivory Coast","Cabo Verde":"Cape Verde"
+};
+
+const specialCoords = {
+  "Antarctica":[-82,0,"Arctic"],"West Bank":[31.95,35.2,"Asia"],"Gaza Strip":[31.5,34.45,"Asia"],
+  "Golan Heights":[33,35.75,"Asia"],"Dokdo / Takeshima":[37.24,131.87,"Asia"],
+  "Paracel Islands":[16.5,112,"Asia"],"Senkaku Islands/Diaoyutai Qundao":[25.75,123.47,"Asia"],
+  "Western Sahara":[24.2,-12.9,"Africa"],"Falkland Islands (Islas Malvinas)":[-51.7,-59,"South America"],
+  "South Georgia and the South Sandwich Islands":[-54.4,-36.6,"South America"],
+  "French Southern and Antarctic Lands":[-49.3,69.3,"Oceania"],
+  "Heard Island and McDonald Islands":[-53.1,73.5,"Oceania"],
+  "Svalbard and Jan Mayen":[78,20,"Arctic"],"Bouvet Island":[-54.42,3.38,"Arctic"],
+  "United States Minor Outlying Islands":[19.28,166.65,"Oceania"]
+};
+
+function normalizeName(v) {
+  return v.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()
+    .replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").trim();
+}
+function parseCsv(text) {
+  return text.trim().split(/\r?\n/).slice(1).map(line => {
+    let quoted=false, cut=-1;
+    for(let i=0;i<line.length;i++) {
+      if(line[i]==='"') quoted=!quoted;
+      else if(line[i]===','&&!quoted) { cut=i; break; }
+    }
+    return {
+      country:line.slice(0,cut).trim().replace(/^"|"$/g,"").replace(/""/g,'"'),
+      count:Number(line.slice(cut+1).trim())
+    };
+  });
+}
+function formatCount(n) {
+  if(n>=1000000) return (n/1000000).toFixed(4).replace(/0+$/,"").replace(/\.$/,"")+"M";
+  if(n>=1000) return (n/1000).toFixed(1).replace(/\.0$/,"")+"K";
+  return n.toLocaleString("en-US");
+}
+function continent(info) {
+  if(info.region==="Americas") return info.subregion==="South America"?"South America":"North America";
+  if(info.region==="Antarctic") return "Arctic";
+  return ["Asia","Europe","Africa","Oceania"].includes(info.region)?info.region:"Arctic";
+}
+function latLongToVector3(lat,lon,radius) {
+  const phi=(90-lat)*Math.PI/180, theta=(lon+180)*Math.PI/180;
+  return new THREE.Vector3(-radius*Math.sin(phi)*Math.cos(theta),radius*Math.cos(phi),radius*Math.sin(phi)*Math.sin(theta));
+}
+
+async function main() {
+  const rows=parseCsv(developerCountsCsv);
+  const response=await fetch("https://cdn.jsdelivr.net/npm/world-countries@5.1.0/countries.json");
+  if(!response.ok) throw new Error("Unable to load country coordinates");
+  const world=await response.json(), idx=new Map();
+  world.forEach(item=>{
+    const names=[item.name?.common,item.name?.official];
+    Object.values(item.name?.nativeName||{}).forEach(n=>names.push(n.common,n.official));
+    names.filter(Boolean).forEach(n=>idx.set(normalizeName(n),item));
+  });
+
+  const unresolved=[];
+  const data=rows.map(row=>{
+    const special=specialCoords[row.country];
+    if(special) return {...row,lat:special[0],lon:special[1],continent:special[2]};
+    const info=idx.get(normalizeName(aliases[row.country]||row.country));
+    if(!info||!Array.isArray(info.latlng)||info.latlng.length<2) { unresolved.push(row.country); return null; }
+    return {...row,lat:Number(info.latlng[0]),lon:Number(info.latlng[1]),continent:continent(info)};
+  }).filter(Boolean).sort((a,b)=>b.count-a.count||a.country.localeCompare(b.country));
+  data.forEach((d,i)=>d.rank=i+1);
+  if(unresolved.length) console.warn("Unresolved:",unresolved);
+
+  document.getElementById("topList").innerHTML=data.slice(0,10).map(d=>
+    `<div class="rank"><span class="rank-number">${d.rank}.</span><span>${d.country}: ${formatCount(d.count)}</span></div>`
+  ).join("");
+
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.1,1000);
+  camera.position.z=2.25;
+  const renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(innerWidth,innerHeight);
+  document.getElementById("container").appendChild(renderer.domElement);
+
+  const loader=new THREE.TextureLoader();
+  const earth=new THREE.Mesh(
+    new THREE.SphereGeometry(1,64,64),
+    new THREE.MeshPhongMaterial({
+      map:loader.load("https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg"),
+      bumpMap:loader.load("https://threejs.org/examples/textures/planets/earth_normal_2048.jpg"),
+      bumpScale:.04,
+      specularMap:loader.load("https://threejs.org/examples/textures/planets/earth_specular_2048.jpg"),
+      specular:new THREE.Color(0x333333),shininess:5
+    })
+  );
+  scene.add(earth);
+
+  const group=new THREE.Group(), bars=[];
+  const max=Math.max(...data.map(d=>d.count));
+  data.forEach(d=>{
+    const height=.035+Math.sqrt(d.count/max)*.34;
+    const radius=.0045+Math.sqrt(d.count/max)*.0065;
+    const color=continentColors[d.continent];
+
+    const marker=new THREE.Group();
+
+    const spike=new THREE.Mesh(
+      new THREE.CylinderGeometry(radius*.82,radius,height,16,1,false),
+      new THREE.MeshPhongMaterial({
+        color,
+        emissive:color,
+        emissiveIntensity:.12,
+        transparent:true,
+        opacity:.82,
+        shininess:42
+      })
+    );
+    spike.position.y=height/2;
+    marker.add(spike);
+
+    const glow=new THREE.Mesh(
+      new THREE.SphereGeometry(radius*1.55,16,16),
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent:true,
+        opacity:.16,
+        blending:THREE.AdditiveBlending,
+        depthWrite:false
+      })
+    );
+    glow.position.y=.006;
+    marker.add(glow);
+
+    const tip=new THREE.Mesh(
+      new THREE.SphereGeometry(radius*.82,16,12),
+      new THREE.MeshPhongMaterial({
+        color,
+        emissive:color,
+        emissiveIntensity:.08,
+        transparent:true,
+        opacity:.84,
+        shininess:36
+      })
+    );
+    tip.position.y=height;
+    marker.add(tip);
+
+    const base=latLongToVector3(d.lat,d.lon,1.002);
+    marker.position.copy(base);
+    marker.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0,1,0),
+      base.clone().normalize()
+    );
+
+    spike.userData.countryRef=d.country;
+    glow.userData.countryRef=d.country;
+    tip.userData.countryRef=d.country;
+
+    group.add(marker);
+    bars.push({
+      ...d,
+      mesh:marker,
+      hitMeshes:[spike,glow,tip],
+      baseScale:marker.scale.clone()
+    });
+  });
+  scene.add(group);
+  scene.add(new THREE.AmbientLight(0x666666,1.1));
+  const light=new THREE.DirectionalLight(0xffffff,1.15); light.position.set(2,1,3); scene.add(light);
+
+  let dragging=false,last={x:0,y:0},animating=false;
+  const raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2(),tooltip=document.getElementById("tooltip");
+
+  function showDetails(b) {
+    document.getElementById("detailName").textContent=b.country;
+    document.getElementById("detailContinent").textContent=b.continent;
+    document.getElementById("detailCount").textContent=b.count.toLocaleString("en-US");
+    document.getElementById("detailRank").textContent="#"+b.rank;
+    document.getElementById("details").style.display="block";
+  }
+  function resetBars() { bars.forEach(b=>b.mesh.scale.copy(b.baseScale)); }
+
+  renderer.domElement.addEventListener("mousedown",e=>{dragging=true;last={x:e.clientX,y:e.clientY};});
+  addEventListener("mouseup",()=>dragging=false);
+  addEventListener("mousemove",e=>{
+    if(dragging) {
+      const dx=e.clientX-last.x,dy=e.clientY-last.y;
+      const yaw=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),dx*.01);
+      const pitch=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),dy*.01);
+      group.quaternion.premultiply(yaw).premultiply(pitch);
+      earth.quaternion.copy(group.quaternion);
+      last={x:e.clientX,y:e.clientY};
+    }
+    mouse.x=e.clientX/innerWidth*2-1;mouse.y=-(e.clientY/innerHeight)*2+1;
+    raycaster.setFromCamera(mouse,camera);
+    resetBars();
+    const hit=raycaster.intersectObjects(bars.flatMap(b=>b.hitMeshes),false)[0];
+    if(hit) {
+      const b=bars.find(x=>x.country===hit.object.userData.countryRef);
+      b.mesh.scale.multiplyScalar(1.45);
+      tooltip.style.left=e.clientX+12+"px";tooltip.style.top=e.clientY+12+"px";
+      tooltip.textContent=`${b.country} (${b.continent}): ${b.count.toLocaleString("en-US")}`;
+      tooltip.style.display="block";showDetails(b);
+    } else tooltip.style.display="none";
+  });
+  renderer.domElement.addEventListener("wheel",e=>{
+    e.preventDefault();camera.position.z=Math.min(4,Math.max(1.35,camera.position.z+e.deltaY*.001));
+  },{passive:false});
+
+  function rotateGlobeToCountry(target) {
+    const startQuaternion=group.quaternion.clone();
+    const localDirection=latLongToVector3(target.lat,target.lon,1).normalize();
+    const desiredDirection=new THREE.Vector3(0,0,1);
+    const targetQuaternion=new THREE.Quaternion().setFromUnitVectors(
+      localDirection,
+      desiredDirection
+    );
+
+    const startTime=performance.now();
+    const duration=1200;
+    animating=true;
+
+    function step(now) {
+      const progress=Math.min(1,(now-startTime)/duration);
+      const eased=1-Math.pow(1-progress,3);
+      group.quaternion.copy(startQuaternion).slerp(targetQuaternion,eased);
+      earth.quaternion.copy(group.quaternion);
+
+      if(progress<1) {
+        requestAnimationFrame(step);
+      } else {
+        animating=false;
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  function findCountry() {
+    const q=document.getElementById("search").value.trim().toLowerCase();
+    if(!q)return;
+    const b=bars.find(x=>x.country.toLowerCase().includes(q));
+    if(!b){alert("No matching country or region found");return;}
+    resetBars();
+    b.mesh.scale.multiplyScalar(1.9);
+    showDetails(b);
+    rotateGlobeToCountry(b);
+    camera.position.z=Math.min(camera.position.z,2.05);
+  }
+  document.getElementById("findButton").onclick=findCountry;
+  document.getElementById("search").addEventListener("keydown",e=>{if(e.key==="Enter")findCountry();});
+
+  addEventListener("resize",()=>{
+    camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);
+  });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    if(!dragging&&!animating){
+      const idleRotation=new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(0,1,0),
+        .0008
+      );
+      group.quaternion.premultiply(idleRotation);
+      earth.quaternion.copy(group.quaternion);
+    }
+    renderer.render(scene,camera);
+  }
+  animate();
+}
+
+main().catch(err=>{
+  console.error(err);
+  document.getElementById("instructions").textContent="Unable to initialize visualization. Open the browser console for details.";
+});
+</script>
+</body>
+</html>
